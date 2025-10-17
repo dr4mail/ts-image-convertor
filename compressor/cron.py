@@ -29,7 +29,9 @@ def cleanup_old_sessions():
             continue
         
         # Проверяем время модификации
-        mtime = datetime.fromtimestamp(session_dir.stat().st_mtime, tz=timezone.utc)
+        from django.utils.timezone import now as timezone_now
+        import pytz
+        mtime = datetime.fromtimestamp(session_dir.stat().st_mtime, tz=pytz.UTC)
         
         if mtime < cutoff_time:
             try:
