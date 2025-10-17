@@ -38,6 +38,11 @@ const progressSection = document.getElementById('progress-section');
 const resultsSection = document.getElementById('results-section');
 const downloadBtn = document.getElementById('download-btn');
 const resetBtn = document.getElementById('reset-btn');
+const uploadProgressSection = document.getElementById('upload-progress-section');
+const uploadProgressBar = document.getElementById('upload-progress-bar');
+const uploadProgressPercent = document.getElementById('upload-progress-percent');
+const uploadProgressText = document.getElementById('upload-progress-text');
+const uploadBytes = document.getElementById('upload-bytes');
 
 // Drag & Drop
 dropZone.addEventListener('click', () => fileInput.click());
@@ -64,7 +69,7 @@ function handleFiles(files) {
         alert('Maximum 30 files allowed!');
         return;
     }
-    
+
     selectedFiles = Array.from(files);
     displayFileList();
     settingsSection.classList.remove('hidden');
@@ -74,20 +79,20 @@ function handleFiles(files) {
 function displayFileList() {
     fileItems.innerHTML = '';
     let totalBytes = 0;
-    
+
     selectedFiles.forEach(file => {
         totalBytes += file.size;
         const div = document.createElement('div');
         div.className = 'flex justify-between items-center text-sm bg-gray-50 p-2 rounded';
         div.innerHTML = `
             <span class="truncate">${file.name}</span>
-            <span class="text-gray-500 ml-2">${(file.size / (1024*1024)).toFixed(2)} MB</span>
+            <span class="text-gray-500 ml-2">${(file.size / (1024 * 1024)).toFixed(2)} MB</span>
         `;
         fileItems.appendChild(div);
     });
-    
+
     fileCount.textContent = selectedFiles.length;
-    totalSize.textContent = (totalBytes / (1024*1024)).toFixed(2);
+    totalSize.textContent = (totalBytes / (1024 * 1024)).toFixed(2);
     fileList.classList.remove('hidden');
 }
 
@@ -139,31 +144,38 @@ compressBtn.addEventListener('click', async () => {
         alert('Please select files first!');
         return;
     }
-    
+
     compressBtn.disabled = true;
     compressBtn.textContent = 'Uploading...';
-    
+    uploadProgressSection.classList.remove('hidden');
+    uploadProgressBar.style.width = '0%';
+    uploadProgressPercent.textContent = '0%';
+    uploadProgressText.textContent = 'Starting upload...';
+    uploadBytes.textContent = '';
+
     try {
-        // Загружаем файлы
+        // Загружаем файлы с прогрессом
         await uploadFiles();
-        
+
         // Запускаем сжатие
         await startCompression();
-        
-        // Показываем прогресс
+
+        // Показываем прогресс обработки (после загрузки)
         settingsSection.classList.add('hidden');
         progressSection.classList.remove('hidden');
-        
+        uploadProgressSection.classList.add('hidden');
+
         // Отображаем настройки
         displayActiveSettings();
-        
+
         // Мониторим прогресс
         monitorProgress();
-        
+
     } catch (error) {
         alert('Error: ' + error.message);
         compressBtn.disabled = false;
         compressBtn.textContent = '🗜️ Compress & Download Archive';
+        uploadProgressSection.classList.add('hidden');
     }
 });
 
@@ -171,15 +183,15 @@ compressBtn.addEventListener('click', async () => {
 function displayActiveSettings() {
     const settingsDisplay = document.getElementById('settings-display');
     let text = 'Settings: ';
-    
+
     if (compressionSettings.quality !== null) {
         text += `Quality ${compressionSettings.quality}%`;
     } else {
         text += 'Auto quality';
     }
-    
+
     text += ' | ';
-    
+
     if (compressionSettings.no_resize) {
         text += 'Original size';
     } else if (compressionSettings.max_dimension !== null) {
@@ -187,37 +199,58 @@ function displayActiveSettings() {
     } else {
         text += 'Auto resize';
     }
-    
+
     settingsDisplay.textContent = text;
 }
 
-// Загрузка файлов
+// Загрузка файлов с индикацией прогресса
 async function uploadFiles() {
-    const formData = new FormData();
-    
-    selectedFiles.forEach(file => {
-        formData.append('files', file);
+    return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        selectedFiles.forEach(file => formData.append('files', file));
+        const archiveName = document.getElementById('archive-name').value.trim();
+        formData.append('prefix', archiveName);
+        formData.append('settings', JSON.stringify(compressionSettings));
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/upload/');
+        xhr.setRequestHeader('X-CSRFToken', csrftoken);
+
+        xhr.upload.onprogress = (e) => {
+            if (!e.lengthComputable) return;
+            const percent = Math.round((e.loaded / e.total) * 100);
+            uploadProgressBar.style.width = percent + '%';
+            uploadProgressPercent.textContent = percent + '%';
+            uploadProgressText.textContent = 'Uploading files...';
+            const loadedMb = (e.loaded / (1024 * 1024)).toFixed(1);
+            const totalMb = (e.total / (1024 * 1024)).toFixed(1);
+            uploadBytes.textContent = `${loadedMb} MB / ${totalMb} MB`;
+        };
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    sessionId = data.session_id;
+                    resolve();
+                } catch (err) {
+                    reject(new Error('Invalid server response'));
+                }
+            } else {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    reject(new Error(data.error || 'Upload failed'));
+                } catch (err) {
+                    reject(new Error('Upload failed'));
+                }
+            }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.onabort = () => reject(new Error('Upload aborted'));
+
+        xhr.send(formData);
     });
-    
-    const archiveName = document.getElementById('archive-name').value.trim();
-    formData.append('prefix', archiveName);
-    formData.append('settings', JSON.stringify(compressionSettings));
-    
-    const response = await fetch('/api/upload/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': csrftoken
-        },
-        body: formData
-    });
-    
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Upload failed');
-    }
-    
-    const data = await response.json();
-    sessionId = data.session_id;
 }
 
 // Запуск сжатия
@@ -229,7 +262,7 @@ async function startCompression() {
             'Content-Type': 'application/json'
         }
     });
-    
+
     if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Compression failed to start');
@@ -242,9 +275,9 @@ function monitorProgress() {
         try {
             const response = await fetch(`/api/status/${sessionId}/`);
             const data = await response.json();
-            
+
             updateProgressBar(data);
-            
+
             if (data.stage === 'completed' && data.results) {
                 clearInterval(interval);
                 showResults(data.results);
@@ -265,11 +298,11 @@ function updateProgressBar(data) {
     const progressPercent = document.getElementById('progress-percent');
     const progressText = document.getElementById('progress-text');
     const currentFile = document.getElementById('current-file');
-    
+
     const progress = data.progress || 0;
     progressBar.style.width = progress + '%';
     progressPercent.textContent = progress + '%';
-    
+
     if (data.stage === 'compressing') {
         progressText.textContent = `Processing file ${data.index || 0} of ${data.total || 0}`;
         currentFile.textContent = `Current: ${data.current_file || ''}`;
@@ -286,12 +319,12 @@ function updateProgressBar(data) {
 function showResults(results) {
     progressSection.classList.add('hidden');
     resultsSection.classList.remove('hidden');
-    
+
     const summary = document.getElementById('summary');
-    const totalSavings = results.total_original_mb > 0 
+    const totalSavings = results.total_original_mb > 0
         ? ((1 - results.total_compressed_mb / results.total_original_mb) * 100).toFixed(1)
         : 0;
-    
+
     let html = `
         <div class="bg-blue-50 border border-blue-200 rounded p-4">
             <p class="text-gray-700"><strong>Processed:</strong> ${results.successful}/${results.successful + results.failed} files</p>
@@ -300,7 +333,7 @@ function showResults(results) {
             <p class="text-green-600 font-semibold"><strong>Total savings:</strong> ${totalSavings}%</p>
         </div>
     `;
-    
+
     // По категориям
     if (Object.keys(results.categories).length > 0) {
         html += '<div class="mt-4"><p class="font-semibold text-gray-700 mb-2">By category:</p><div class="space-y-1">';
@@ -310,7 +343,7 @@ function showResults(results) {
         }
         html += '</div></div>';
     }
-    
+
     summary.innerHTML = html;
 }
 
@@ -330,16 +363,17 @@ function resetApp() {
         max_dimension: null,
         no_resize: false
     };
-    
+
     fileInput.value = '';
     fileList.classList.add('hidden');
     settingsSection.classList.add('hidden');
     progressSection.classList.add('hidden');
     resultsSection.classList.add('hidden');
-    
+    uploadProgressSection.classList.add('hidden');
+
     compressBtn.disabled = false;
     compressBtn.textContent = '🗜️ Compress & Download Archive';
-    
+
     // Сброс настроек
     document.querySelector('input[name="quality-mode"][value="auto"]').checked = true;
     document.querySelector('input[name="resize-mode"][value="auto"]').checked = true;
