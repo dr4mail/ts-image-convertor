@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'compressor',
+    'django_crontab',
 ]
 
 MIDDLEWARE = [
@@ -135,3 +136,12 @@ MAX_FILES_COUNT = 30
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
+
+
+# Cron задачи
+CRONJOBS = [
+    # Очистка старых файлов каждый день в 2:00
+    ('0 2 * * *', 'compressor.cron.cleanup_old_sessions', '>> /home/dannis/projects/ts-image-convertor/logs/cron.log'),
+    # Сброс зависших сессий каждые 30 минут
+    ('*/30 * * * *', 'compressor.cron.reset_stuck_sessions', '>> /home/dannis/projects/ts-image-convertor/logs/cron.log'),
+]
