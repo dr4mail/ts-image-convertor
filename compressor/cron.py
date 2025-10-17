@@ -4,7 +4,8 @@ Cron задачи для очистки и обслуживания
 
 import os
 import shutil
-from datetime import datetime, timedelta
+import time
+from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
 from pathlib import Path
@@ -13,7 +14,7 @@ from .models import CompressionSession
 
 def cleanup_old_sessions():
     """Удаляет файлы сессий старше 24 часов"""
-    print(f"[{datetime.now()}] Starting cleanup old sessions...")
+    print(f"[{timezone.now()}] Starting cleanup old sessions...")
     
     temp_root = Path(settings.TEMP_ROOT)
     if not temp_root.exists():
@@ -21,7 +22,7 @@ def cleanup_old_sessions():
         return
     
     deleted_count = 0
-    cutoff_time = timezone.now() - timedelta(hours=24)
+    cutoff_timestamp = time.time() - (24 * 3600)  # 24 часа назад
     
     # Проходим по всем сессиям
     for session_dir in temp_root.iterdir():
@@ -29,11 +30,9 @@ def cleanup_old_sessions():
             continue
         
         # Проверяем время модификации
-        from django.utils.timezone import now as timezone_now
-        import pytz
-        mtime = datetime.fromtimestamp(session_dir.stat().st_mtime, tz=pytz.UTC)
+        mtime = session_dir.stat().st_mtime
         
-        if mtime < cutoff_time:
+        if mtime < cutoff_timestamp:
             try:
                 shutil.rmtree(session_dir)
                 deleted_count += 1
@@ -46,7 +45,7 @@ def cleanup_old_sessions():
 
 def reset_stuck_sessions():
     """Сбрасывает зависшие сессии в статус error"""
-    print(f"[{datetime.now()}] Checking for stuck sessions...")
+    print(f"[{timezone.now()}] Checking for stuck sessions...")
     
     # Сессии в статусе processing старше 30 минут
     cutoff_time = timezone.now() - timedelta(minutes=30)
