@@ -15,6 +15,7 @@ import uuid
 import json
 import threading
 import os
+import shutil
 
 from .compressor_engine import WebCompressor
 from .models import CompressionSession, CompressionFile
@@ -407,5 +408,31 @@ def get_summary(request, session_id):
         
     except CompressionSession.DoesNotExist:
         return JsonResponse({'error': 'Access denied'}, status=403)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def cancel_session(request, session_id):
+    """Отменить сессию: удалить временные файлы и запись в БД (если есть)"""
+    try:
+        # Удалить папку сессии из TEMP_ROOT
+        session_path = Path(settings.TEMP_ROOT) / session_id
+        if session_path.exists() and session_path.is_dir():
+            try:
+                shutil.rmtree(session_path)
+            except Exception as e:
+                return JsonResponse({'error': f'Failed to remove session files: {str(e)}'}, status=500)
+
+        # Удалить запись из БД, если такая есть и принадлежит пользователю
+        try:
+            db_session = CompressionSession.objects.get(session_id=session_id, user=request.user)
+            db_session.delete()
+        except CompressionSession.DoesNotExist:
+            pass
+
+        return JsonResponse({'status': 'canceled'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

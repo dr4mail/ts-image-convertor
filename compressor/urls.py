@@ -22,4 +22,5 @@ urlpatterns = [
     path('api/status/<str:session_id>/', views.get_status, name='status'),
     path('api/download/<str:session_id>/', views.download_archive, name='download'),
     path('api/summary/<str:session_id>/', views.get_summary, name='summary'),
+    path('api/session/<str:session_id>/cancel/', views.cancel_session, name='cancel_session'),
 ]

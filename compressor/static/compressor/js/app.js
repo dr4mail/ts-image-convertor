@@ -43,6 +43,11 @@ const uploadProgressBar = document.getElementById('upload-progress-bar');
 const uploadProgressPercent = document.getElementById('upload-progress-percent');
 const uploadProgressText = document.getElementById('upload-progress-text');
 const uploadBytes = document.getElementById('upload-bytes');
+const uploadCancelBtn = document.getElementById('upload-cancel-btn');
+
+// Управление состоянием загрузки
+let isUploading = false;
+let currentUploadXhr = null;
 
 // Drag & Drop
 dropZone.addEventListener('click', () => fileInput.click());
@@ -145,6 +150,10 @@ compressBtn.addEventListener('click', async () => {
         return;
     }
 
+    if (isUploading) {
+        return; // игнор повторного нажатия во время загрузки
+    }
+    isUploading = true;
     compressBtn.disabled = true;
     compressBtn.textContent = 'Uploading...';
     uploadProgressSection.classList.remove('hidden');
@@ -152,6 +161,9 @@ compressBtn.addEventListener('click', async () => {
     uploadProgressPercent.textContent = '0%';
     uploadProgressText.textContent = 'Starting upload...';
     uploadBytes.textContent = '';
+    // блокируем выбор файлов на время загрузки
+    fileInput.disabled = true;
+    dropZone.classList.add('pointer-events-none', 'opacity-60');
 
     try {
         // Загружаем файлы с прогрессом
@@ -177,6 +189,10 @@ compressBtn.addEventListener('click', async () => {
         compressBtn.textContent = '🗜️ Compress & Download Archive';
         uploadProgressSection.classList.add('hidden');
     }
+    // снимаем блокировки вне зависимости от результата
+    isUploading = false;
+    fileInput.disabled = false;
+    dropZone.classList.remove('pointer-events-none', 'opacity-60');
 });
 
 // Отображение активных настроек
@@ -213,8 +229,10 @@ async function uploadFiles() {
         formData.append('settings', JSON.stringify(compressionSettings));
 
         const xhr = new XMLHttpRequest();
+        currentUploadXhr = xhr;
         xhr.open('POST', '/api/upload/');
         xhr.setRequestHeader('X-CSRFToken', csrftoken);
+        xhr.timeout = 15 * 60 * 1000; // 15 минут на крупные загрузки
 
         xhr.upload.onprogress = (e) => {
             if (!e.lengthComputable) return;
@@ -248,8 +266,38 @@ async function uploadFiles() {
 
         xhr.onerror = () => reject(new Error('Network error during upload'));
         xhr.onabort = () => reject(new Error('Upload aborted'));
+        xhr.ontimeout = () => reject(new Error('Upload timeout'));
+        xhr.onloadend = () => { currentUploadXhr = null; };
 
         xhr.send(formData);
+    });
+}
+
+// Отмена загрузки
+if (uploadCancelBtn) {
+    uploadCancelBtn.addEventListener('click', () => {
+        if (currentUploadXhr) {
+            try { currentUploadXhr.abort(); } catch (e) { }
+        }
+        // если уже создана сессия, попросим сервер очистить временные файлы и запись в БД
+        if (sessionId) {
+            fetch(`/api/session/${sessionId}/cancel/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken }
+            }).catch(() => { });
+            sessionId = null;
+        }
+        // Сброс UI
+        uploadProgressSection.classList.add('hidden');
+        uploadProgressBar.style.width = '0%';
+        uploadProgressPercent.textContent = '0%';
+        uploadProgressText.textContent = 'Canceled';
+        uploadBytes.textContent = '';
+        compressBtn.disabled = false;
+        compressBtn.textContent = '🗜️ Compress & Download Archive';
+        isUploading = false;
+        fileInput.disabled = false;
+        dropZone.classList.remove('pointer-events-none', 'opacity-60');
     });
 }
 
