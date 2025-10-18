@@ -159,6 +159,7 @@ compressBtn.addEventListener('click', async () => {
     compressBtn.disabled = true;
     compressBtn.textContent = 'Uploading...';
     if (uploadSection) uploadSection.classList.add('hidden');
+    if (settingsSection) settingsSection.classList.add('hidden');
     uploadProgressSection.classList.remove('hidden');
     uploadProgressBar.style.width = '0%';
     uploadProgressPercent.textContent = '0%';
@@ -196,6 +197,7 @@ compressBtn.addEventListener('click', async () => {
         compressBtn.textContent = '🗜️ Compress & Download Archive';
         uploadProgressSection.classList.add('hidden');
         if (uploadSection) uploadSection.classList.remove('hidden');
+        if (settingsSection) settingsSection.classList.remove('hidden');
     }
     // снимаем блокировки вне зависимости от результата
     isUploading = false;
@@ -319,6 +321,7 @@ if (uploadCancelBtn) {
         uploadProgressText.textContent = 'Canceled';
         uploadBytes.textContent = '';
         if (uploadSection) uploadSection.classList.remove('hidden');
+        if (settingsSection) settingsSection.classList.remove('hidden');
         compressBtn.disabled = false;
         compressBtn.textContent = '🗜️ Compress & Download Archive';
         isUploading = false;
