@@ -27,6 +27,7 @@ let compressionSettings = {
 
 // DOM элементы
 const dropZone = document.getElementById('drop-zone');
+const uploadSection = document.getElementById('upload-section');
 const fileInput = document.getElementById('file-input');
 const fileList = document.getElementById('file-list');
 const fileItems = document.getElementById('file-items');
@@ -157,6 +158,7 @@ compressBtn.addEventListener('click', async () => {
     isUploading = true;
     compressBtn.disabled = true;
     compressBtn.textContent = 'Uploading...';
+    if (uploadSection) uploadSection.classList.add('hidden');
     uploadProgressSection.classList.remove('hidden');
     uploadProgressBar.style.width = '0%';
     uploadProgressPercent.textContent = '0%';
@@ -193,6 +195,7 @@ compressBtn.addEventListener('click', async () => {
         compressBtn.disabled = false;
         compressBtn.textContent = '🗜️ Compress & Download Archive';
         uploadProgressSection.classList.add('hidden');
+        if (uploadSection) uploadSection.classList.remove('hidden');
     }
     // снимаем блокировки вне зависимости от результата
     isUploading = false;
@@ -315,6 +318,7 @@ if (uploadCancelBtn) {
         uploadProgressPercent.textContent = '0%';
         uploadProgressText.textContent = 'Canceled';
         uploadBytes.textContent = '';
+        if (uploadSection) uploadSection.classList.remove('hidden');
         compressBtn.disabled = false;
         compressBtn.textContent = '🗜️ Compress & Download Archive';
         isUploading = false;
@@ -356,6 +360,8 @@ function monitorProgress() {
 
             if (data.stage === 'completed' && data.results) {
                 clearInterval(interval);
+                // на всякий случай скрываем upload-прогресс
+                if (uploadProgressSection) uploadProgressSection.classList.add('hidden');
                 showResults(data.results);
             } else if (data.results && data.results.status === 'error') {
                 clearInterval(interval);
@@ -393,8 +399,14 @@ function updateProgressBar(data) {
 
 // Показать результаты
 function showResults(results) {
+    // скрываем любые загрузочные секции
+    if (uploadProgressSection) uploadProgressSection.classList.add('hidden');
     progressSection.classList.add('hidden');
     resultsSection.classList.remove('hidden');
+    // по требованию: скрываем секцию выбора файлов после завершения
+    if (uploadSection) uploadSection.classList.add('hidden');
+    fileList.classList.add('hidden');
+    settingsSection.classList.add('hidden');
 
     const summary = document.getElementById('summary');
     const totalSavings = results.total_original_mb > 0
@@ -441,6 +453,7 @@ function resetApp() {
     };
 
     fileInput.value = '';
+    if (uploadSection) uploadSection.classList.remove('hidden');
     fileList.classList.add('hidden');
     settingsSection.classList.add('hidden');
     progressSection.classList.add('hidden');
