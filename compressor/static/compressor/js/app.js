@@ -48,6 +48,7 @@ const uploadCancelBtn = document.getElementById('upload-cancel-btn');
 // Управление состоянием загрузки
 let isUploading = false;
 let currentUploadXhr = null;
+let canceledByUser = false;
 
 // Drag & Drop
 dropZone.addEventListener('click', () => fileInput.click());
@@ -184,7 +185,11 @@ compressBtn.addEventListener('click', async () => {
         monitorProgress();
 
     } catch (error) {
-        alert('Error: ' + error.message);
+        if (error && error.message === '__upload_aborted__') {
+            // тишина при отмене пользователем
+        } else {
+            alert('Error: ' + (error && error.message ? error.message : 'Upload failed'));
+        }
         compressBtn.disabled = false;
         compressBtn.textContent = '🗜️ Compress & Download Archive';
         uploadProgressSection.classList.add('hidden');
@@ -193,6 +198,7 @@ compressBtn.addEventListener('click', async () => {
     isUploading = false;
     fileInput.disabled = false;
     dropZone.classList.remove('pointer-events-none', 'opacity-60');
+    canceledByUser = false;
 });
 
 // Отображение активных настроек
@@ -234,12 +240,28 @@ async function uploadFiles() {
         xhr.setRequestHeader('X-CSRFToken', csrftoken);
         xhr.timeout = 15 * 60 * 1000; // 15 минут на крупные загрузки
 
+        // Предварительно посчитаем общий размер файлов и кумулятивные границы, чтобы показывать текущий файл и счетчик
+        const fileSizes = selectedFiles.map(f => f.size);
+        const totalFilesBytes = fileSizes.reduce((a, b) => a + b, 0);
+        const cumulative = [];
+        fileSizes.reduce((sum, s, i) => {
+            const next = sum + s;
+            cumulative[i] = next;
+            return next;
+        }, 0);
+
         xhr.upload.onprogress = (e) => {
             if (!e.lengthComputable) return;
             const percent = Math.round((e.loaded / e.total) * 100);
             uploadProgressBar.style.width = percent + '%';
             uploadProgressPercent.textContent = percent + '%';
-            uploadProgressText.textContent = 'Uploading files...';
+            // Оценим текущий файл по сумме загруженных байт, ограничив до суммы файлов (без учета оверхеда multipart)
+            const loadedClamped = Math.min(e.loaded, totalFilesBytes);
+            let idx = 0;
+            while (idx < cumulative.length && loadedClamped > cumulative[idx]) idx++;
+            const currentIndex = Math.min(idx, selectedFiles.length - 1);
+            const currentName = selectedFiles[currentIndex] ? selectedFiles[currentIndex].name : '';
+            uploadProgressText.textContent = `Uploading ${currentIndex + 1}/${selectedFiles.length}: ${currentName}`;
             const loadedMb = (e.loaded / (1024 * 1024)).toFixed(1);
             const totalMb = (e.total / (1024 * 1024)).toFixed(1);
             uploadBytes.textContent = `${loadedMb} MB / ${totalMb} MB`;
@@ -265,7 +287,7 @@ async function uploadFiles() {
         };
 
         xhr.onerror = () => reject(new Error('Network error during upload'));
-        xhr.onabort = () => reject(new Error('Upload aborted'));
+        xhr.onabort = () => reject(new Error('__upload_aborted__'));
         xhr.ontimeout = () => reject(new Error('Upload timeout'));
         xhr.onloadend = () => { currentUploadXhr = null; };
 
@@ -298,6 +320,12 @@ if (uploadCancelBtn) {
         isUploading = false;
         fileInput.disabled = false;
         dropZone.classList.remove('pointer-events-none', 'opacity-60');
+        // показать список файлов, если был скрыт, и оставить выбранные файлы без очистки
+        if (selectedFiles && selectedFiles.length > 0) {
+            const fileList = document.getElementById('file-list');
+            if (fileList) fileList.classList.remove('hidden');
+        }
+        canceledByUser = true;
     });
 }
 
