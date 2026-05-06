@@ -12,13 +12,32 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Загрузить .env файл из корня проекта
+load_dotenv(BASE_DIR / '.env')
+
+# Отладочная информация (можно убрать после того, как всё заработает)
+print("Current working directory:", os.getcwd())
+print("Looking for .env at:", BASE_DIR / '.env')
+print("ENV DEBUG value:", os.environ.get('DEBUG', 'not set'))
+print("ENV ALLOWED_HOSTS value:", os.environ.get('ALLOWED_HOSTS', 'not set'))
+
+# Загрузка переменных окружения
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-fallback-key')
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '83.217.213.95,v2954561.hosted-by-vdsina.ru').split(',')
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Убрать возможные пробелы из ALLOWED_HOSTS
+ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS]
+
+# Дополнительная отладка (можно убрать позже)
+print(f"DEBUG is set to: {DEBUG}")
+print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
+print(f"SECRET_KEY loaded: {'Yes' if SECRET_KEY != 'django-insecure-fallback-key' else 'No (using fallback)'}")
 
 
 # Quick-start development settings - unsuitable for production

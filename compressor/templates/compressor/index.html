@@ -36,7 +36,7 @@
         <div id="upload-section" class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors cursor-pointer"
                 id="drop-zone">
-                <input type="file" id="file-input" multiple accept="image/*" class="hidden">
+                <input type="file" id="file-input" multiple accept="image/*,.heic,.heif" class="hidden">
                 <div id="drop-zone-content">
                     <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none"
                         viewBox="0 0 48 48">
@@ -46,7 +46,7 @@
                     </svg>
                     <p class="text-lg text-gray-700 mb-2">Drop files here or click to upload</p>
                     <p class="text-sm text-gray-500">Max 30 files, 100MB each</p>
-                    <p class="text-xs text-gray-400 mt-2">Supported: JPG, PNG, BMP, TIFF, WEBP</p>
+                    <p class="text-xs text-gray-400 mt-2">Supported: JPG, PNG, BMP, TIFF, WEBP, HEIC, HEIF</p>
                 </div>
             </div>
 
@@ -107,7 +107,7 @@
                     <label class="flex items-center">
                         <input type="radio" name="quality-mode" value="custom" class="mr-2">
                         <span>Custom:</span>
-                        <input type="number" id="quality-input" min="1" max="100" value="85" disabled
+                        <input type="number" id="quality-input" min="1" max="100" value="90" disabled
                             class="ml-2 w-20 px-2 py-1 border border-gray-300 rounded">
                         <span class="ml-2 text-sm text-gray-500">(1-100)</span>
                     </label>

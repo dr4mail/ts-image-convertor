@@ -111,7 +111,7 @@ def upload_files(request):
         uploads_path.mkdir(parents=True, exist_ok=True)
         
         # Валидация и сохранение файлов
-        allowed_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp'}
+        allowed_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp', '.heic', '.heif'}
         file_list = []
         
         for file in files:

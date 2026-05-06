@@ -8,6 +8,8 @@ from pathlib import Path
 import zipfile
 import json
 
+HEIC_EXTENSIONS = {'.heic', '.heif'}
+
 
 class WebCompressor:
     def __init__(self, session_path, prefix="", compression_settings=None):
@@ -232,8 +234,8 @@ class WebCompressor:
                     )
                     final_size_mb = self.get_file_size_mb(output_path)
                 
-                # Проверка: не стал ли файл больше
-                if final_size_mb > analysis['file_size_mb']:
+                # Для HEIC/HEIF всегда оставляем JPEG на выходе, даже если он больше оригинала.
+                if final_size_mb > analysis['file_size_mb'] and input_path.suffix.lower() not in HEIC_EXTENSIONS:
                     output_path.unlink()
                     import shutil
                     if self.prefix:
